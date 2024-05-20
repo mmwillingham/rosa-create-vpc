@@ -1,0 +1,45 @@
+name: rosa-create-with-vpc-dev
+on: workflow_dispatch
+
+env:
+  AWS_REGION: "us-east-2"
+
+jobs:
+  rosa-create-vpc:
+    name: init-plan-apply
+    runs-on: ubuntu-latest
+    permissions: # This and the next two lines are required for accessing AWS as an OIDC provider
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::261642263042:role/GitHubAction-AssumeRoleWithAction
+          role-session-name: githubrolesession
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        id: init
+        run: terraform init # -backend-config=backend.tfvars  
+
+# NOTE: The backend entries are populated after plan, but removed if there is nothing to do.
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -var-file=dev.tfvars #-lock=false
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -var-file=dev.tfvars --auto-approve # -lock=false
+      
+      - name: Terraform Destroy
+        id: destroy
+        run: terraform destroy -var-file=dev.tfvars --auto-approve # -lock=false        
